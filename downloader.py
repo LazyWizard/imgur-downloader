@@ -30,13 +30,14 @@ def __get_image_links(album_id: str) -> List[str]:
 
 def __save_images(images: List[str]):
     os.makedirs('images', exist_ok=True)
+    total_attempted = len(images)
     total_complete = 0
-    total_failed = 0
     total_bytes = 0
     for link in images:
         local_path = 'images/' + os.path.basename(link)
         if os.path.isfile(local_path):
             print('Already downloaded: ' + link)
+            total_attempted -= 1
             continue
 
         print('Downloading ' + link + ' ... ', end='')
@@ -47,13 +48,13 @@ def __save_images(images: List[str]):
                 byte_size = 0
                 for chunk in res.iter_content(100000):
                     byte_size += file.write(chunk)
-                print('success! Size: {}'.format(byte_size))
-                total_bytes += byte_size
-                total_complete += 1
+            print('success! Size: {}MB'.format(round(byte_size / 1048576.0, 2)))
+            total_bytes += byte_size
+            total_complete += 1
         except Exception as ex:
             print('failed! Reason: {}'.format(ex))
-            total_failed += 1
-    print('Downloaded {} images; {} bytes total'.format(total_complete, total_bytes))
+    print('Successfully downloaded {}/{} images ({}MB total)'.format(
+        total_complete, total_attempted, round(total_bytes / 1048576.0, 2)))
 
 
 def download_album(album_id: str):
