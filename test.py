@@ -1,5 +1,5 @@
 import downloader
-import os
+import shutil
 
-os.removedirs('images')
+shutil.rmtree('images')
 downloader.download_album('3c86T')
