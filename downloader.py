@@ -2,6 +2,7 @@ import configparser
 import os
 import requests
 import sys
+from collections import namedtuple
 from typing import List
 
 from imgurpython import ImgurClient
@@ -30,7 +31,10 @@ def __get_image_links(album_id: str) -> List[str]:
     return result
 
 
-def __save_images(folder_name: str, images: List[str]) -> (int, int, int, int):
+Result = namedtuple('Result', 'downloaded, failed, skipped, total_bytes')
+
+
+def __save_images(folder_name: str, images: List[str]) -> Result:
     path = 'images/' + folder_name
     os.makedirs(path, exist_ok=True)
     num_downloaded = num_failed = num_skipped = total_bytes = 0
@@ -59,10 +63,10 @@ def __save_images(folder_name: str, images: List[str]) -> (int, int, int, int):
             num_failed += 1
     print('Successfully downloaded {}/{} images, skipped {} ({}MB total downloaded)'.format(
         num_downloaded, num_downloaded + num_failed, num_skipped, round(total_bytes / 1048576.0, 2)))
-    return num_downloaded, num_failed, num_skipped, total_bytes
+    return Result(num_downloaded, num_failed, num_skipped, total_bytes)
 
 
-def download_album(album_id: str) -> (int, int, int, int):
+def download_album(album_id: str) -> Result:
     """
     Downloads all images in a public album to its own directory, found under images/<album id>/. Previously downloaded
     images will be ignored, and in the case of large GIFs the downloader will try to grab an MP4 version first.
@@ -81,7 +85,7 @@ def download_album(album_id: str) -> (int, int, int, int):
         print("No such album '{}'!".format(album_id))
 
 
-def download_account(account_name: str) -> (int, int, int, int):
+def download_account(account_name: str) -> Result:
     """
     Downloads all public albums of an account. Each album is downloaded to its own directory as if download_album
     had been called on each one separately (which is indeed what happens under the hood).
@@ -100,15 +104,15 @@ def download_account(account_name: str) -> (int, int, int, int):
         num_downloaded = num_failed = num_skipped = total_bytes = 0
         print("Found {} public albums for account '{}'".format(len(album_ids), account_name))
         for album_id in album_ids:
-            downloaded, failed, skipped, bytez = download_album(album_id)
-            num_downloaded += downloaded
-            num_failed += failed
-            num_skipped += skipped
-            total_bytes += bytez
+            result = download_album(album_id)
+            num_downloaded += result.downloaded
+            num_failed += result.failed
+            num_skipped += result.skipped
+            total_bytes += result.total_bytes
         print('Parsed {} albums. Successfully downloaded {}/{} images, skipped {} ({}MB total downloaded)'.format(
             len(album_ids), num_downloaded, num_downloaded + num_failed,
             num_skipped, round(total_bytes / 1048576.0, 2)))
-        return num_downloaded, num_downloaded, num_skipped, total_bytes
+        return Result(num_downloaded, num_downloaded, num_skipped, total_bytes)
     except ImgurClientError:
         print("No such public account '{}'! Attempting as album...".format(account_name))
         return download_album(account_name)
