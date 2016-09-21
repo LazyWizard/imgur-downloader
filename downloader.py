@@ -14,11 +14,11 @@ def __create_client() -> ImgurClient:
     client_id = config.get('client', 'id')
     client_secret = config.get('client', 'secret')
     return ImgurClient(client_id, client_secret)
+__client = __create_client()
 
 
 def __get_image_links(album_id: str) -> List[str]:
-    client = __create_client()
-    images = client.get_album_images(album_id)
+    images = __client.get_album_images(album_id)
     print('Found {} images in album'.format(len(images)))
 
     result = []
@@ -28,19 +28,18 @@ def __get_image_links(album_id: str) -> List[str]:
     return result
 
 
-def __save_images(images: List[str]):
-    os.makedirs('images', exist_ok=True)
-    total_attempted = len(images)
-    total_complete = 0
-    total_bytes = 0
+def __save_images(folder_name: str, images: List[str]):
+    path = 'images/' + folder_name
+    os.makedirs(path, exist_ok=True)
+    total_attempted = total_complete = total_bytes = 0
     for link in images:
-        local_path = 'images/' + os.path.basename(link)
+        local_path = path + '/' + os.path.basename(link)
         if os.path.isfile(local_path):
             print('Already downloaded: ' + link)
-            total_attempted -= 1
             continue
 
         print('Downloading ' + link + ' ... ', end='')
+        total_attempted += 1
         try:
             res = requests.get(link)
             res.raise_for_status()
@@ -60,9 +59,21 @@ def __save_images(images: List[str]):
 def download_album(album_id: str):
     print("Attempting to download album '{}'".format(album_id))
     try:
-        __save_images(__get_image_links(album_id))
+        __save_images(album_id, __get_image_links(album_id))
     except ImgurClientError:
-        print("No such album '{}'".format(arg))
+        print("No such album '{}'!".format(album_id))
+
+
+def download_account(account_name: str):
+    print("Attempting to download account '{}'".format(account_name))
+    try:
+        album_ids = __client.get_account_album_ids(account_name)
+        print("Found {} public albums for account '{}'".format(len(album_ids), account_name))
+        for album_id in album_ids:
+            download_album(album_id)
+    except ImgurClientError:
+        print("No such public account '{}'! Attempting as album...".format(account_name))
+        download_album(account_name)
 
 
 if __name__ == '__main__':
@@ -71,4 +82,4 @@ if __name__ == '__main__':
         for arg in args:
             download_album(arg)
     else:
-        download_album(input('Please pass in an album id: '))
+        download_account(input('Please pass in an account name or album id: '))
