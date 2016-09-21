@@ -24,26 +24,26 @@ def __get_image_links(album_id: str) -> List[str]:
 
     result = []
     for img in images:
-        #  Large GIFs will have an MP4 version (.gifv) as well, we should prefer these as they are much smaller
+        #  Large GIFs will have an MP4 version (.gifv) as well; we prefer these as they are much smaller than GIFs
         link = img.mp4 if hasattr(img, 'mp4') else img.link
         result.append(link.replace('http:', 'https:'))
     return result
 
 
-def __save_images(folder_name: str, images: List[str]):
+def __save_images(folder_name: str, images: List[str]) -> (int, int, int, int):
     path = 'images/' + folder_name
     os.makedirs(path, exist_ok=True)
-    total_attempted = total_complete = total_bytes = 0
+    num_downloaded = num_failed = num_skipped = total_bytes = 0
     for link in images:
         #  Don't download the image if we already have a copy
         local_path = path + '/' + os.path.basename(link)
         if os.path.isfile(local_path):
             print('Already downloaded: ' + link)
+            num_skipped += 1
             continue
 
-        #  Download image and save to disk, save total bytes downloaded for later reporting
+        #  Download image and save to disk; save total bytes downloaded for later reporting
         print('Downloading ' + link + ' ... ', end='')
-        total_attempted += 1
         try:
             res = requests.get(link)
             res.raise_for_status()
@@ -53,46 +53,65 @@ def __save_images(folder_name: str, images: List[str]):
                     byte_size += file.write(chunk)
             print('success! Size: {}MB'.format(round(byte_size / 1048576.0, 2)))
             total_bytes += byte_size
-            total_complete += 1
+            num_downloaded += 1
         except Exception as ex:
             print('failed! Reason: {}'.format(ex))
-    print('Successfully downloaded {}/{} images ({}MB total)'.format(
-        total_complete, total_attempted, round(total_bytes / 1048576.0, 2)))
+            num_failed += 1
+    print('Successfully downloaded {}/{} images, skipped {} ({}MB total downloaded)'.format(
+        num_downloaded, num_downloaded + num_failed, num_skipped, round(total_bytes / 1048576.0, 2)))
+    return num_downloaded, num_failed, num_skipped, total_bytes
 
 
-def download_album(album_id: str):
+def download_album(album_id: str) -> (int, int, int, int):
     """
-    Downloads all images in a public album to its own directory, found under images/<album id>/.
+    Downloads all images in a public album to its own directory, found under images/<album id>/. Previously downloaded
+    images will be ignored, and in the case of large GIFs the downloader will try to grab an MP4 version first.
 
     Args:
         album_id: the ID of the album, the part after https://imgur.com/a/
+    Returns:
+        A tuple of ints containing, respectively, the number of images downloaded, the number of images that failed
+        to download, the number of images skipped because a local copy already existed, and the total amount of
+        bytes downloaded.
     """
     print("Attempting to download album '{}'".format(album_id))
     try:
-        __save_images(album_id, __get_image_links(album_id))
+        return __save_images(album_id, __get_image_links(album_id))
     except ImgurClientError:
         print("No such album '{}'!".format(album_id))
 
 
-def download_account(account_name: str):
+def download_account(account_name: str) -> (int, int, int, int):
     """
     Downloads all public albums of an account. Each album is downloaded to its own directory as if download_album
     had been called on each one separately (which is indeed what happens under the hood).
 
-
     Args:
         account_name: the ID of the account, found by clicking on a username and taking the part of the URL
         before imgur.com
+    Returns:
+        A tuple of ints containing, respectively, the number of images downloaded, the number of images that failed
+        to download, the number of images skipped because a local copy already existed, and the total amount of
+        bytes downloaded.
     """
     print("Attempting to download account '{}'".format(account_name))
     try:
         album_ids = __client.get_account_album_ids(account_name)
+        num_downloaded = num_failed = num_skipped = total_bytes = 0
         print("Found {} public albums for account '{}'".format(len(album_ids), account_name))
         for album_id in album_ids:
-            download_album(album_id)
+            downloaded, failed, skipped, bytez = download_album(album_id)
+            num_downloaded += downloaded
+            num_failed += failed
+            num_skipped += skipped
+            total_bytes += bytez
+        print('Parsed {} albums. Successfully downloaded {}/{} images, skipped {} ({}MB total downloaded)'.format(
+            len(album_ids), num_downloaded, num_downloaded + num_failed,
+            num_skipped, round(total_bytes / 1048576.0, 2)))
+        return num_downloaded, num_downloaded, num_skipped, total_bytes
     except ImgurClientError:
         print("No such public account '{}'! Attempting as album...".format(account_name))
-        download_album(account_name)
+        return download_album(account_name)
 
 
 if __name__ == '__main__':
