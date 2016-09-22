@@ -104,23 +104,24 @@ def download_account(account_name: str) -> Result:
     """
     print("Attempting to download account '{}'".format(account_name))
     try:
-        album_ids = __client.get_account_album_ids(account_name)
+        #  Note: albums returned via get_account_albums don't include images, so we'll have to retrieve that data later
+        albums = __client.get_account_albums(account_name)
         num_downloaded = num_failed = num_skipped = total_bytes = 0
-        print("Found {} public albums for account '{}'".format(len(album_ids), account_name))
-        for album_id in album_ids:
-            album = __client.get_album(album_id)
+        print("Found {} public albums for account '{}'".format(len(albums), account_name))
+        for album in albums:
             prompt = input("Download album '{}' (id: '{}'; {} images)? y/n "
-                           .format(album.title, album_id, album.images_count))
+                           .format(album.title, album.id, album.images_count))
             if str.lower(prompt) != 'y':
                 continue
 
-            result = download_album(album_id)
+            #  Download each individual album and add its download attempt results to the global stats
+            result = download_album(album.id)
             num_downloaded += result.downloaded
             num_failed += result.failed
             num_skipped += result.skipped
             total_bytes += result.total_bytes
         print('Parsed {} albums. Successfully downloaded {}/{} images, skipped {} (downloaded {}MB total)'.format(
-            len(album_ids), num_downloaded, num_downloaded + num_failed,
+            len(albums), num_downloaded, num_downloaded + num_failed,
             num_skipped, round(total_bytes / 1048576.0, 2)))
         return Result(num_downloaded, num_downloaded, num_skipped, total_bytes)
     except ImgurClientError:
