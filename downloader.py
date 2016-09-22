@@ -90,7 +90,8 @@ def download_album(album_id: str) -> Result:
 def download_account(account_name: str) -> Result:
     """
     Downloads all public albums of an account. Each album is downloaded to its own directory as if download_album
-    had been called on each one separately (which is indeed what happens under the hood).
+    had been called on each one separately (which is indeed what happens under the hood). The program prompts the user
+    for each album separately, allowing them to choose which albums should be downloaded.
 
     Args:
         account_name: the ID of the account, found by clicking on a username and taking the part of the URL
@@ -107,6 +108,12 @@ def download_account(account_name: str) -> Result:
         num_downloaded = num_failed = num_skipped = total_bytes = 0
         print("Found {} public albums for account '{}'".format(len(album_ids), account_name))
         for album_id in album_ids:
+            album = __client.get_album(album_id)
+            prompt = input("Download album '{}' (id: '{}'; {} images)? y/n "
+                           .format(album.title, album_id, album.images_count))
+            if str.lower(prompt) != 'y':
+                continue
+
             result = download_album(album_id)
             num_downloaded += result.downloaded
             num_failed += result.failed
@@ -117,12 +124,12 @@ def download_account(account_name: str) -> Result:
             num_skipped, round(total_bytes / 1048576.0, 2)))
         return Result(num_downloaded, num_downloaded, num_skipped, total_bytes)
     except ImgurClientError:
-        print("No such public account '{}'! Attempting as album...".format(account_name))
+        print("No such public account '{}'! Reattempting as album...".format(account_name))
         return download_album(account_name)
 
 
 if __name__ == '__main__':
-    args = sys.argv[1:]  # Exclude argv[0], which is the scriptname
+    args = sys.argv[1:]  # Exclude argv[0], which is the script name
     #  If command line arguments are passed in, assume it's a list of album IDs
     if args:
         for arg in args:
