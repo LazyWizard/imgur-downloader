@@ -31,6 +31,7 @@ def __get_image_links(album_id: str) -> List[str]:
     return result
 
 
+#  Returned by various functions to pass along the results of a download attempt
 Result = namedtuple('Result', 'downloaded, failed, skipped, total_bytes')
 
 
@@ -61,7 +62,7 @@ def __save_images(folder_name: str, images: List[str]) -> Result:
         except Exception as ex:
             print('failed! Reason: {}'.format(ex))
             num_failed += 1
-    print('Successfully downloaded {}/{} images, skipped {} ({}MB total downloaded)'.format(
+    print('Successfully downloaded {}/{} images, skipped {} (downloaded {}MB total)'.format(
         num_downloaded, num_downloaded + num_failed, num_skipped, round(total_bytes / 1048576.0, 2)))
     return Result(num_downloaded, num_failed, num_skipped, total_bytes)
 
@@ -74,9 +75,10 @@ def download_album(album_id: str) -> Result:
     Args:
         album_id: the ID of the album, the part after https://imgur.com/a/
     Returns:
-        A tuple of ints containing, respectively, the number of images downloaded, the number of images that failed
-        to download, the number of images skipped because a local copy already existed, and the total amount of
-        bytes downloaded.
+        A Result tuple containing the number of images downloaded, the number of images that failed to download, the
+        number of images skipped because a local copy already existed, and the total amount of bytes downloaded.
+        These values can be retrieved with result.downloaded, result.failed, result.skipped, and result.total_bytes
+        respectively.
     """
     print("Attempting to download album '{}'".format(album_id))
     try:
@@ -94,9 +96,10 @@ def download_account(account_name: str) -> Result:
         account_name: the ID of the account, found by clicking on a username and taking the part of the URL
         before imgur.com
     Returns:
-        A tuple of ints containing, respectively, the number of images downloaded, the number of images that failed
-        to download, the number of images skipped because a local copy already existed, and the total amount of
-        bytes downloaded.
+        A Result tuple containing the number of images downloaded, the number of images that failed to download, the
+        number of images skipped because a local copy already existed, and the total amount of bytes downloaded.
+        These values can be retrieved with result.downloaded, result.failed, result.skipped, and result.total_bytes
+        respectively.
     """
     print("Attempting to download account '{}'".format(account_name))
     try:
@@ -109,7 +112,7 @@ def download_account(account_name: str) -> Result:
             num_failed += result.failed
             num_skipped += result.skipped
             total_bytes += result.total_bytes
-        print('Parsed {} albums. Successfully downloaded {}/{} images, skipped {} ({}MB total downloaded)'.format(
+        print('Parsed {} albums. Successfully downloaded {}/{} images, skipped {} (downloaded {}MB total)'.format(
             len(album_ids), num_downloaded, num_downloaded + num_failed,
             num_skipped, round(total_bytes / 1048576.0, 2)))
         return Result(num_downloaded, num_downloaded, num_skipped, total_bytes)
@@ -119,11 +122,11 @@ def download_account(account_name: str) -> Result:
 
 
 if __name__ == '__main__':
-    args = sys.argv[1:]
+    args = sys.argv[1:]  # Exclude argv[0], which is the scriptname
     #  If command line arguments are passed in, assume it's a list of album IDs
     if args:
         for arg in args:
             download_album(arg)
-    #  Otherwise prompt the user for input
+    #  Otherwise prompt the user for input, and allow downloading entire accounts
     else:
         download_account(input('Please pass in an account name or album id: '))
