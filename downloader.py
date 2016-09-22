@@ -6,6 +6,7 @@ from collections import namedtuple
 from typing import List
 
 from imgurpython import ImgurClient
+from imgurpython.imgur.models.image import Image
 from imgurpython.helpers.error import ImgurClientError
 
 
@@ -19,14 +20,13 @@ def __create_client() -> ImgurClient:
 __client = __create_client()
 
 
-def __get_image_links(album_id: str) -> List[str]:
-    images = __client.get_album_images(album_id)
+def __get_image_links(images: List[Image]) -> List[str]:
     print('Found {} images in album'.format(len(images)))
 
     result = []
-    for img in images:
+    for image in images:
         #  Large GIFs will have an MP4 version (.gifv) as well; we prefer these as they are much smaller than GIFs
-        link = img.mp4 if hasattr(img, 'mp4') else img.link
+        link = image.mp4 if hasattr(image, 'mp4') else image.link
         result.append(link.replace('http:', 'https:'))
     return result
 
@@ -48,7 +48,7 @@ def __save_images(folder_name: str, images: List[str]) -> Result:
             continue
 
         #  Download image and save to disk; save total bytes downloaded for later reporting
-        print('Downloading ' + link + ' ... ', end='')
+        print('Downloading ' + link + ' ... ', flush=True, end='')
         try:
             res = requests.get(link)
             res.raise_for_status()
@@ -82,7 +82,11 @@ def download_album(album_id: str) -> Result:
     """
     print("Attempting to download album '{}'".format(album_id))
     try:
-        return __save_images(album_id, __get_image_links(album_id))
+        album = __client.get_album(album_id)
+        author = album.account_url or "Anonymous"
+        title = album.title or "Untitled"
+        return __save_images('{} - {} - {}'.format(author, album.id, title),
+                             __get_image_links([Image(image) for image in album.images]))
     except ImgurClientError:
         print("No such album '{}'!".format(album_id))
 
