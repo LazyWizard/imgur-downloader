@@ -11,7 +11,7 @@ from imgurpython.helpers.error import ImgurClientError
 
 
 def __create_client() -> ImgurClient:
-    #  Set up ImgurClient with our OAuth2 credentials, obtained here: https://api.imgur.com/oauth2/addclient
+    # Set up ImgurClient with our OAuth2 credentials, obtained here: https://api.imgur.com/oauth2/addclient
     config = configparser.ConfigParser()
     config.read('credentials.ini')
     client_id = config.get('client', 'id')
@@ -25,13 +25,13 @@ def __get_image_links(images: List[Image]) -> List[str]:
 
     result = []
     for image in images:
-        #  Large GIFs will have an MP4 version (.gifv) as well; we prefer these as they are much smaller than GIFs
+        # Large GIFs will have an MP4 version (.gifv) as well; we prefer these as they are much smaller than GIFs
         link = image.mp4 if hasattr(image, 'mp4') else image.link
         result.append(link.replace('http:', 'https:'))
     return result
 
 
-#  Returned by various functions to pass along the results of a download attempt
+# Returned by various functions to pass along the results of a download attempt
 Result = namedtuple('Result', 'downloaded, failed, skipped, total_bytes')
 
 
@@ -40,14 +40,14 @@ def __save_images(folder_name: str, images: List[str]) -> Result:
     os.makedirs(path, exist_ok=True)
     num_downloaded = num_failed = num_skipped = total_bytes = 0
     for link in images:
-        #  Don't download the image if we already have a copy
+        # Don't download the image if we already have a copy
         local_path = path + '/' + os.path.basename(link)
         if os.path.isfile(local_path):
             print('Already downloaded: ' + link)
             num_skipped += 1
             continue
 
-        #  Download image and save to disk; save total bytes downloaded for later reporting
+        # Download image and save to disk; save total bytes downloaded for later reporting
         print('Downloading ' + link + ' ... ', flush=True, end='')
         try:
             res = requests.get(link)
@@ -69,8 +69,9 @@ def __save_images(folder_name: str, images: List[str]) -> Result:
 
 def download_album(album_id: str) -> Result:
     """
-    Downloads all images in a public album to its own directory, found under images/<album id>/. Previously downloaded
-    images will be ignored, and in the case of large GIFs the downloader will try to grab an MP4 version first.
+    Downloads all images in a public album to its own directory, found under "images/<username> - <album id> -
+    <album title>/". Previously downloaded images will be ignored, and in the case of large GIFs the downloader will
+    try to grab an MP4 version first.
 
     Args:
         album_id: the ID of the album, the part after https://imgur.com/a/
@@ -108,7 +109,7 @@ def download_account(account_name: str) -> Result:
     """
     print("Attempting to download account '{}'".format(account_name))
     try:
-        #  Note: albums returned via get_account_albums don't include images, so we'll have to retrieve that data later
+        # Note: albums returned via get_account_albums don't include images, so we'll have to retrieve that data later
         albums = __client.get_account_albums(account_name)
         num_downloaded = num_failed = num_skipped = total_bytes = 0
         print("Found {} public albums for account '{}'".format(len(albums), account_name))
@@ -120,6 +121,10 @@ def download_account(account_name: str) -> Result:
                            .format(album.title, album.id, album.images_count))
             if str.lower(prompt) == 'y':
                 to_download.append(album)
+
+        # Save list of downloaded albums so they can be passed in as command line arguments if something goes wrong
+        with open('last_downloaded', 'wt') as file:
+            file.write(" ".join([album.id for album in to_download]))
 
         # Download each individual album and add its download attempt results to the global stats
         print('Downloading {} albums, skipping {}'.format(len(to_download), len(albums) - len(to_download)))
@@ -140,10 +145,10 @@ def download_account(account_name: str) -> Result:
 
 if __name__ == '__main__':
     args = sys.argv[1:]  # Exclude argv[0], which is the script name
-    #  If command line arguments are passed in, assume it's a list of album IDs
+    # If command line arguments are passed in, assume it's a list of album IDs
     if args:
         for arg in args:
             download_album(arg)
-    #  Otherwise prompt the user for input, and allow downloading entire accounts
+    # Otherwise prompt the user for input, and allow downloading entire accounts
     else:
         download_account(input('Please pass in an account name or album id: '))
