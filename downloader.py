@@ -116,9 +116,9 @@ def download_account(account_name: str) -> Result:
 
         # Prompt on which of an account's albums to download
         to_download = []
-        for album in albums:
-            prompt = input("Download album '{}' (id: '{}'; {} images)? y/n "
-                           .format(album.title, album.id, album.images_count))
+        for i, album in enumerate(albums):
+            prompt = input("Download album {}/{}; '{}' (id: '{}'; {} images)? y/n "
+                           .format(i + 1, len(albums), album.title, album.id, album.images_count))
             if str.lower(prompt) == 'y':
                 to_download.append(album)
 
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     args = sys.argv[1:]  # Exclude argv[0], which is the script name
     # If command line arguments are passed in, assume it's a list of album IDs
     if args:
-        for arg in args:
+        for arg in set(args):
             download_album(arg)
     # Otherwise prompt the user for input, and allow downloading entire accounts
     else:
