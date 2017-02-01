@@ -7,6 +7,7 @@ from typing import List
 
 from imgurpython import ImgurClient
 from imgurpython.imgur.models.image import Image
+from imgurpython.imgur.models.album import Album
 from imgurpython.helpers.error import ImgurClientError
 
 
@@ -86,10 +87,20 @@ def download_album(album_id: str) -> Result:
         album = __client.get_album(album_id)
         author = album.account_url or "Anonymous"
         title = album.title or "Untitled"
-        return __save_images('{} - {} - {}'.format(author, album.id, title),
+        return __save_images('{} - {} - {}'.format(author, title, album.id),
                              __get_image_links([Image(image) for image in album.images]))
     except ImgurClientError:
         print("No such album '{}'!".format(album_id))
+
+
+def get_account_albums(username: str) -> List[Album]:
+    num_albums = __client.get_account_album_count(username)
+
+    albums = []
+    for page in range((num_albums // 50) + 1):
+        for album in __client.get_account_albums(username, page=page):
+            albums.append(album)
+    return albums
 
 
 def download_account(account_name: str) -> Result:
@@ -110,7 +121,7 @@ def download_account(account_name: str) -> Result:
     print("Attempting to download account '{}'".format(account_name))
     try:
         # Note: albums returned via get_account_albums don't include images, so we'll have to retrieve that data later
-        albums = __client.get_account_albums(account_name)
+        albums = get_account_albums(account_name)
         num_downloaded = num_failed = num_skipped = total_bytes = 0
         print("Found {} public albums for account '{}'".format(len(albums), account_name))
 
